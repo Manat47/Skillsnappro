@@ -1,0 +1,187 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// server/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+// --------------------------------------
+// 1. Enums (ตัวเลือกต่างๆ ของระบบ)
+// --------------------------------------
+
+enum Role {
+  STUDENT
+  ADMIN
+  INSTRUCTOR
+  RECRUITER
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+enum MemberRole {
+  OWNER
+  MAINTAINER
+  MEMBER
+  VIEWER
+}
+
+// --------------------------------------
+// 2. User & Authentication Domain
+// --------------------------------------
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password_hash String
+  role          Role      @default(STUDENT)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Soft Delete: ถ้ามีค่า = ถูกลบ
+
+  // Relations
+  profile       Profile?
+  
+  // โปรเจกต์ที่เป็นเจ้าของ (Owner)
+  projectsOwned Project[] @relation("ProjectOwner")
+  
+  // โปรเจกต์ที่เป็นสมาชิก (Member)
+  memberships   ProjectMember[]
+}
+
+// --------------------------------------
+// 3. Profile & Skill Domain
+// --------------------------------------
+
+model Profile {
+  id          Int        @id @default(autoincrement())
+  full_name   String
+  bio         String?
+  avatar_url  String?
+  visibility  Visibility @default(PUBLIC)
+  deletedAt   DateTime?  // Soft Delete
+
+  // เชื่อมกับ User (1-to-1)
+  userId      Int        @unique
+  user        User       @relation(fields: [userId], references: [id])
+
+  // เชื่อมกับ Skill (Many-to-Many)
+  skills      ProfileSkill[]
+}
+
+model Skill {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  deletedAt DateTime? // Soft Delete
+
+  // ถูกใช้ใน Profile ไหนบ้าง
+  profiles  ProfileSkill[]
+}
+
+// ตารางกลาง (Pivot) สำหรับจับคู่ Profile <-> Skill
+model ProfileSkill {
+  profileId Int
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  skillId   Int
+  skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  // Composite Primary Key: จับคู่ซ้ำไม่ได้ (เช่น คนเดิมมีสกิลเดิม 2 รอบไม่ได้)
+  @@id([profileId, skillId])
+}
+
+// --------------------------------------
+// 4. Project Domain (หัวใจหลัก)
+// --------------------------------------
+
+model Project {
+  id                Int           @id @default(autoincrement())
+  title             String
+  short_description String?
+  description       String?       @db.Text // เก็บข้อความยาวๆ ได้
+  status            ProjectStatus @default(DRAFT)
+  visibility        Visibility    @default(PUBLIC)
+  cover_image_url   String?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?     // Soft Delete
+
+  // เจ้าของโปรเจกต์ (Owner)
+  ownerId           Int
+  owner             User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  // ความสัมพันธ์อื่นๆ
+  members           ProjectMember[]
+  media             ProjectMedia[]
+  tags              ProjectTag[]
+}
+
+model ProjectMember {
+  // ไม่ใช้ id แยก แต่ใช้คู่ (projectId + userId) เป็น Key หลัก
+  role      MemberRole @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  projectId Int
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId]) // Composite PK
+}
+
+model ProjectMedia {
+  id          Int      @id @default(autoincrement())
+  type        String   // e.g., 'IMAGE', 'VIDEO', 'LINK', 'FILE'
+  url         String
+  title       String?
+  description String?
+  order       Int      @default(0) // เอาไว้เรียงลำดับรูป
+
+  projectId   Int
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// --------------------------------------
+// 5. Tag Domain
+// --------------------------------------
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  deletedAt DateTime? // Soft Delete
+
+  projects  ProjectTag[]
+}
+
+// ตารางกลาง (Pivot) สำหรับ Project <-> Tag
+model ProjectTag {
+  projectId Int
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  tagId     Int
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, tagId])
+}
