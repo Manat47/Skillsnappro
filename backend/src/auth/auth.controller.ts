@@ -2,8 +2,9 @@ import { Body, Controller, Post, Get, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
-
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -21,5 +22,11 @@ export class AuthController {
   @Get('me')
   async me(@Req() req: any) {
     return req.user;
+  }
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin-only')
+  async adminOnly() {
+    return { ok: true, message: 'เฉพาะแอดมินเท่านั้นที่เห็นข้อความนี้' };
   }
 }
