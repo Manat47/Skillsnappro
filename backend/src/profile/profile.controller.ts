@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards, Pars
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 
 @Controller('profile')
 export class ProfileController {
@@ -9,22 +10,25 @@ export class ProfileController {
 
 @UseGuards(JwtAuthGuard)
 @Get('me')
-async getMyProfile(@Req() req: any) {
-  console.log('ข้อมูลที่แกะได้จาก Token:', req.user);
-  return this.profileService.getMyProfile(req.user.userId);
+async getMyProfile(@GetUser('userId') userId: number) {
+  return this.profileService.getMyProfile(userId);
 }
 
 @UseGuards(JwtAuthGuard)
 @Patch('me')
-async updateMyProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
-  return this.profileService.updateMyProfile(req.user.userId, dto);
+async updateMyProfile(
+   @GetUser('userId') userId: number,
+   @Body() dto: UpdateProfileDto,
+) {
+  return this.profileService.updateMyProfile(userId, dto);
  }
 
 @UseGuards(JwtAuthGuard)
 @Get(':userId')
 getProfileByUserId(
-  @Req() req: any,
-  @Param('userId', ParseIntPipe) userId: number,) {
-  return this.profileService.getProfileByUserId(req.user, userId);
+   @GetUser() currentUser: any,
+  @Param('userId', ParseIntPipe) userId: number,) 
+  {
+  return this.profileService.getProfileByUserId(currentUser, userId);
  }
 }
