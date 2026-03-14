@@ -152,15 +152,20 @@ model ProjectMember {
 }
 
 model ProjectMedia {
-  id          Int      @id @default(autoincrement())
-  type        String   // e.g., 'IMAGE', 'VIDEO', 'LINK', 'FILE'
+  id          Int       @id @default(autoincrement())
+  type        String
   url         String
   title       String?
   description String?
-  order       Int      @default(0) // เอาไว้เรียงลำดับรูป
+  order       Int       @default(0)
 
   projectId   Int
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  deletedAt   DateTime?
+
+  @@index([projectId])
+  @@index([projectId, deletedAt])
 }
 
 // --------------------------------------
